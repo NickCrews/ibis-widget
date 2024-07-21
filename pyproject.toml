@@ -13,10 +13,13 @@ dependencies = [
     "ibis-framework>=9.0.0",
 ]
 
+[tool.pdm]
+distribution = true
 [tool.pdm.dev-dependencies]
 dev = [
     "ipykernel",
     "duckdb",
+    "watchfiles>=0.22.0",
 ]
 lint = ["ruff"]
 test = ["pytest"]
@@ -25,5 +28,3 @@ test = ["pytest"]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[tool.pdm]
-distribution = true

@@ -38,27 +38,30 @@ function makeTableHeaderEl(model) {
 
 
 function makeTableEl(model) {
-    const el = document.createElement("table");
+    const el = document.createElement("div");
     const setHtml = () => {
         const columns = model.get("columns");
         const rows = model.get("result_table");
         el.innerHTML = `
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    ${columns.map(column => `<th>${column}</th>`).join("")}
-                </tr>
-            </thead>
-            <tbody>
-                ${rows.map((row, idx) => `
+        <div style="overflow-x: scroll;">
+            <table>
+                <thead>
                     <tr>
-                        <td>${idx}</td>
-                        ${columns.map(column => `<td>${row[column]}</td>`).join("")}
+                        <th>#</th>
+                        ${columns.map(column => `<th>${column}</th>`).join("")}
                     </tr>
-                `).join("")}
-            </tbody>
-        </table>`
+                </thead>
+                <tbody>
+                    ${rows.map((row, idx) => `
+                        <tr>
+                            <td>${idx}</td>
+                            ${columns.map(column => `<td>${row[column]}</td>`).join("")}
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+        `
     }
     setHtml();
     model.on("change:result_table", setHtml);

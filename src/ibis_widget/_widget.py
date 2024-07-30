@@ -25,6 +25,8 @@ class IbisWidget(traitlets.HasTraits):
     """The source table to display. May be filtered by `filters`."""
     filters = traitlets.List(traitlets.Instance(ibis.Deferred))
     """A list of filters to apply to the table."""
+    search = traitlets.Unicode()
+    """A search string to filter the table."""
     offset = traitlets.Int()
     """The number of rows to skip before displaying the first row."""
     limit = traitlets.Int()
@@ -36,6 +38,7 @@ class IbisWidget(traitlets.HasTraits):
         /,
         *,
         filters: Iterable[ibis.Deferred] = [],
+        search: str = "",
         offset: int = 0,
         limit: int = 100,
     ):
@@ -50,13 +53,14 @@ class IbisWidget(traitlets.HasTraits):
         offset :
             The number of rows to skip before displaying the first row.
         """
-        # filters = list(filters)
-        # self.table = table
-        # self.filters = [f for f in filters]
-        # self.offset = offset
-        # self.limit = limit
-        super().__init__(table=table, filters=filters, offset=offset, limit=limit)
+        super().__init__(
+            table=table, filters=filters, search=search, offset=offset, limit=limit
+        )
 
+        self._search_widget = wid.Text(
+            description="Search",
+            layout=wid.Layout(width="300px"),
+        )
         self._offset_widget = wid.BoundedIntText(
             value=offset,
             min=0,
@@ -71,6 +75,7 @@ class IbisWidget(traitlets.HasTraits):
             description="Limit",
             layout=wid.Layout(width="200px"),
         )
+        traitlets.link((self, "search"), (self._search_widget, "value"))
         traitlets.link((self, "offset"), (self._offset_widget, "value"))
         traitlets.link((self, "limit"), (self._limit_widget, "value"))
         # TODO: I think we can reduce startup time by not materializing
@@ -80,7 +85,7 @@ class IbisWidget(traitlets.HasTraits):
         )
         self.observe(
             lambda _change: self._update_datagrid(),
-            ["limit", "offset", "filters"],
+            ["filters", "search", "limit", "offset"],
         )
 
     @property
@@ -89,6 +94,7 @@ class IbisWidget(traitlets.HasTraits):
         t = self.table
         if self.filters:
             t = t.filter(self.filters)
+        t = _search_table(t, self.search)
         return t
 
     @property
@@ -117,6 +123,9 @@ class IbisWidget(traitlets.HasTraits):
         return int(self.result_table.count().execute())
 
     def _update_datagrid(self):
+        n_filtered = self.filtered.count().execute()
+        if n_filtered < self.offset:
+            self.offset = 0
         self._datagrid.records = self._result_records
         self._datagrid.schema = self._result_schema
 
@@ -126,8 +135,10 @@ class IbisWidget(traitlets.HasTraits):
         )["text/plain"]
 
     def _repr_mimebundle_(self, include=None, exclude=None):
-        start_stop_box = wid.HBox([self._offset_widget, self._limit_widget])
-        vbox = wid.VBox([start_stop_box, self._datagrid, start_stop_box])
+        controls = self._search_widget
+        pagination = wid.HBox([self._offset_widget, self._limit_widget])
+        vbox = wid.VBox([controls, self._datagrid, pagination])
+
         base = vbox._repr_mimebundle_(include=include, exclude=exclude)
         return {**base, "text/plain": repr(self)}
 
@@ -159,3 +170,13 @@ class DataGridWidget(anywidget.AnyWidget):
         records = list(records)
         schema = dict(schema)
         super().__init__(records=records, schema=schema)
+
+
+def _search_table(t: ibis.Table, search: str) -> ibis.Table:
+    search = search.strip()
+    if not search:
+        return t
+    search = search.lower()
+    terms = [term.strip() for term in search.split()]
+    oneline = ibis.literal(" ").join([t[col].cast(str).lower() for col in t.columns])
+    return t.filter([oneline.contains(term) for term in terms])

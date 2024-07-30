@@ -66,6 +66,12 @@ function renderTbody(records, schema) {
     const columns = Object.keys(schema);
     return `
     <style>
+
+    .dg-table td {
+        padding-top: 0px;
+        padding-bottom: 0px;
+    }
+
     .dg-null {
         color: #999;
     }

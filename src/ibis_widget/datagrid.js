@@ -7,10 +7,11 @@ function render({model, el}) {
     el.appendChild(tableEl);
 }
 
-function header(schema) {
+function renderThead(schema) {
     function headerCell(column, type) {
         return `
-        <th class="dg-tooltip">${column}
+        <th class="dg-tooltip">
+            ${column}
             <span class="dg-tooltiptext">${type}</span>
         </th>
         `
@@ -56,13 +57,77 @@ function header(schema) {
     `
 }
 
+function renderTbody(records, schema) {
+    const columns = Object.keys(schema);
+    return `
+    <style>
+    .dg-null {
+        color: #999;
+    }
+    
+    .dg-string {
+        color: #000;
+    }
+    
+    .dg-integer {
+        color: #007bff;
+        text-align: right;
+    }
+    
+    .dg-float {
+        color: #28a745;
+        text-align: right;
+    }
+    
+    .dg-boolean {
+        color: #dc3545;
+    }
+
+    .dg-date {
+        color: #17a2b8;
+    }
+    </style>
+    <tbody>
+        ${records.map((record) => `
+            <tr>
+                ${columns.map(column => `<td>${renderCell(record[column], column, schema[column])}</td>`).join("")}
+            </tr>
+        `).join("")}
+    </tbody>
+    `
+}
+
+function renderCell(value, column, type) {
+    if (value === null) {
+        return `<div class="dg-null">null</div>`;
+    }
+    // ! means non-nullable in ibis's type language
+    // We don't care about that here
+    type = type.replace("!", "");
+    if (type === "string") {
+        return `<div class="dg-string">${value}</div>`;
+    }
+    if (type.startsWith("int") || type.startsWith("uint")) {
+        return `<div class="dg-integer">${value}</div>`;
+    }
+    if (type === "float" || type === "decimal") {
+        return `<div class="dg-float">${value}</div>`;
+    }
+    if (type === "boolean") {
+        return `<div class="dg-boolean">${value}</div>`;
+    }
+    if (type === "date") {
+        return `<div class="dg-date">${value}</div>`;
+    }
+    return `<div>${value}</div>`;
+}
+
 
 function makeTableEl(model) {
     const el = document.createElement("div");
     const setHtml = () => {
         const schema = model.get("schema");
         const records = model.get("records");
-        const columns = Object.keys(schema);
         el.innerHTML = `
         <style>
         .dg-table {
@@ -72,14 +137,8 @@ function makeTableEl(model) {
         </style>
         <div class="dg-table">
             <table>
-                ${header(schema)}
-                <tbody>
-                    ${records.map((record) => `
-                        <tr>
-                            ${columns.map(column => `<td>${record[column]}</td>`).join("")}
-                        </tr>
-                    `).join("")}
-                </tbody>
+                ${renderThead(schema)}
+                ${renderTbody(records, schema)}
             </table>
         </div>
         `

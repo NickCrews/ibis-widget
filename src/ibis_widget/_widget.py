@@ -61,6 +61,7 @@ class IbisWidget(traitlets.HasTraits):
             description="Search",
             layout=wid.Layout(width="300px"),
         )
+        self._row_count_widget = wid.HTML(self._row_count_summary)
         self._offset_widget = wid.BoundedIntText(
             value=offset,
             min=0,
@@ -119,13 +120,21 @@ class IbisWidget(traitlets.HasTraits):
         return int(self.table.count().execute())
 
     @property
+    def _n_rows_filtered(self) -> int:
+        return int(self.filtered.count().execute())
+
+    @property
+    def _row_count_summary(self) -> str:
+        return f"Showing {self._n_rows_result:,} of {self._n_rows_filtered:,} filtered rows ({self._n_rows_total:,} total)."
+
+    @property
     def _n_rows_result(self) -> int:
         return int(self.result_table.count().execute())
 
     def _update_datagrid(self):
-        n_filtered = self.filtered.count().execute()
-        if n_filtered < self.offset:
+        if self._n_rows_filtered < self.offset:
             self.offset = 0
+        self._row_count_widget.value = self._row_count_summary
         self._datagrid.records = self._result_records
         self._datagrid.schema = self._result_schema
 
@@ -137,8 +146,7 @@ class IbisWidget(traitlets.HasTraits):
     def _repr_mimebundle_(self, include=None, exclude=None):
         controls = self._search_widget
         pagination = wid.HBox([self._offset_widget, self._limit_widget])
-        vbox = wid.VBox([controls, self._datagrid, pagination])
-
+        vbox = wid.VBox([controls, self._datagrid, self._row_count_widget, pagination])
         base = vbox._repr_mimebundle_(include=include, exclude=exclude)
         return {**base, "text/plain": repr(self)}
 

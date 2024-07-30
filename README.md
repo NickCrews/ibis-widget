@@ -1,6 +1,6 @@
 # Ibis-Widget
 
-A lightweight Jupyterwidget for viewing (and later filtering, sorting, searching)
+A lightweight Jupyterwidget for searching and viewing (and later filtering, sorting, etc)
 [Ibis tables](https://github.com/ibis-project/ibis)
 
 No dependencies besides `anywidget` and `ibis-framework`
@@ -18,14 +18,15 @@ t = ibis.read_csv("https://github.com/NickCrews/apoc-data/releases/download/2024
 t = t.cache()
 w = IbisWidget(t)
 w.offset = 100
+w.search = "2024"
 w.limit = 1000
 print(w.result_table.count().execute())
 w
 ```
 
-This renders a HTML interface with scrolling, pagination, etc
+This renders a HTML interface with search, scrolling, pagination, etc
 
-![An HTML table interface with "offset" and "limit" controls](docs/readme_screenshot.jpg)
+![An HTML table interface](docs/readme_screenshot.jpg)
 
 You can also do some monkeypatching for a better experience:
 

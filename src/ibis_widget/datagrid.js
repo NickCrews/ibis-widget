@@ -26,7 +26,9 @@ function renderThead(schema) {
         position: sticky;
         top: 0px;  /* 0px if you don't have a navbar, but something is required */
         background: #f8f9fa;
-    }   
+        text-align: center;
+        border: 1px solid hsl(202, 10%, 88%);
+    }
 
     .dg-tooltip {
         position: relative;
@@ -74,9 +76,14 @@ function renderTbody(records, schema) {
         font-size: 10px;
     }
 
+    .dg-table tr {
+        background-color: white;
+    }
+
     .dg-table td {
         padding-top: 0px;
         padding-bottom: 0px;
+        border: 1px solid hsl(202, 10%, 88%);
     }
 
     .dg-null {

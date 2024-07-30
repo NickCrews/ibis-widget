@@ -30,22 +30,27 @@ function renderThead(schema) {
     }
 
     .dg-tooltip .dg-tooltiptext {
-        visibility: hidden;
         background-color: black;
         color: #fff;
         text-align: center;
         padding: 5px 0;
         border-radius: 6px;
         
-        width: 120px;
         top: 100%;
         left: 50%;
-        half the width to center 
-        margin-left: -60px;
-        z-index: 1;
+        width: 120px;
+        margin-left: -60px; /* half of the width to center */
+        
     }
 
-    .dg-tooltip:hover .dg-tooltiptext {
+    .dg-tooltiptext {
+        position: absolute;
+        visibility: hidden;
+        z-index: 1;
+
+    }
+
+    *:hover > .dg-tooltiptext {
         visibility: visible;
     }
     </style>
@@ -67,6 +72,22 @@ function renderTbody(records, schema) {
     
     .dg-string {
         color: #000;
+    }
+    
+    .dg-truncate {
+        white-space: nowrap;       /* Prevent text from wrapping */
+        overflow: hidden;          /* Hide overflowed content */
+        text-overflow: ellipsis;   /* Show ellipsis (...) for truncated content */
+        max-width: 150px;          /* Set a maximum width */
+        cursor: pointer;           /* Add a pointer on hover */
+    }
+    
+    .dg-truncate:hover {
+        white-space: normal;       /* Revert to default behaviour */
+        overflow: visible;         /* Revert to default behaviour */
+        text-overflow: clip;       /* Revert to default behaviour */
+        z-index: 1;                /* Ensure the text is on top */
+        background-color: #f8f9fa; /* Highlight on hover */
     }
     
     .dg-integer {
@@ -105,7 +126,8 @@ function renderCell(value, column, type) {
     // We don't care about that here
     type = type.replace("!", "");
     if (type === "string") {
-        return `<div class="dg-string">${value}</div>`;
+        return `
+            <div class="dg-string dg-truncate">${value}</div>`;
     }
     if (type.startsWith("int") || type.startsWith("uint")) {
         return `<div class="dg-integer">${value}</div>`;

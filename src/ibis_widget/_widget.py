@@ -34,7 +34,7 @@ class IbisWidget(traitlets.HasTraits):
 
     def __init__(
         self,
-        table: ibis.Table,
+        table: ibis.Table | ibis.Column,
         /,
         *,
         filters: Iterable[ibis.Deferred] = [],
@@ -47,12 +47,14 @@ class IbisWidget(traitlets.HasTraits):
         Parameters
         ----------
         table :
-            The table to display.
+            The ibis.Table or ibis.Column to display.
         filters :
             A list of filters to apply to the table.
         offset :
             The number of rows to skip before displaying the first row.
         """
+        if isinstance(table, ibis.Column):
+            table = table.as_table()
         super().__init__(
             table=table, filters=filters, search=search, offset=offset, limit=limit
         )

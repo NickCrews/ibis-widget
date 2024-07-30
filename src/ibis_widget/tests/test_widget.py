@@ -6,7 +6,7 @@ from ibis_widget import IbisWidget
 
 
 @pytest.fixture
-def table():
+def table() -> ibis.Table:
     path = Path(__file__).parent / "data" / "candidate_registrations.csv"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -16,10 +16,10 @@ def table():
     return ibis.read_csv(path)
 
 
-def test_no_options(table):
-    IbisWidget(table)
-
-
-def test_named_table_errors(table):
-    with pytest.raises(TypeError):
-        IbisWidget(source_table=table)
+def test_basic(table: ibis.Table):
+    w = IbisWidget(table)
+    assert w.columns == table.columns
+    assert w._repr_mimebundle_().keys() == {
+        "text/plain",
+        "application/vnd.jupyter.widget-view+json",
+    }

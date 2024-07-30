@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 import anywidget
 import ibis
+import ipywidgets as wid
 import traitlets
 from ibis import selectors as s
 from ibis.expr import types as ir
@@ -12,80 +13,149 @@ def _date_to_string(date: ir.DateValue) -> ir.StringValue:
     return date.cast("string")
 
 
-def _table_to_json(table: ibis.Table, widget: anywidget.AnyWidget) -> list[dict]:
+def _table_to_json(table: ibis.Table) -> list[dict]:
     table = table.mutate(s.across(s.of_type("date"), _date_to_string))
     return table.to_pandas().to_dict(orient="records")
 
 
-class IbisWidget(anywidget.AnyWidget):
+class IbisWidget(traitlets.HasTraits):
     """A JupyterWidget for displaying Ibis tables"""
 
-    _esm = Path(__file__).parent / "widget.js"
-    source_table = traitlets.Instance(ibis.Table)
-    result_table = traitlets.Instance(ibis.Table, read_only=True).tag(
-        sync=True, to_json=_table_to_json
-    )
-    n_rows_source = traitlets.Int(read_only=True).tag(sync=True)
-    n_rows_filtered = traitlets.Int(read_only=True).tag(sync=True)
-    columns = traitlets.List().tag(sync=True)
-    filters = traitlets.List(traitlets.Instance(ibis.Deferred)).tag(sync=True)
-    start = traitlets.Int().tag(sync=True)
-    stop = traitlets.Int().tag(sync=True)
+    table = traitlets.Instance(ibis.Table)
+    """The source table to display. May be filtered by `filters`."""
+    filters = traitlets.List(traitlets.Instance(ibis.Deferred))
+    """A list of filters to apply to the table."""
+    offset = traitlets.Int()
+    """The number of rows to skip before displaying the first row."""
+    limit = traitlets.Int()
+    """The maximum number of rows to display."""
+
+    def __init__(
+        self,
+        table: ibis.Table,
+        /,
+        *,
+        filters: Iterable[ibis.Deferred] = [],
+        offset: int = 0,
+        limit: int = 100,
+    ):
+        """Create a new IbisWidget.
+
+        Parameters
+        ----------
+        table :
+            The table to display.
+        filters :
+            A list of filters to apply to the table.
+        offset :
+            The number of rows to skip before displaying the first row.
+        """
+        # filters = list(filters)
+        # self.table = table
+        # self.filters = [f for f in filters]
+        # self.offset = offset
+        # self.limit = limit
+        super().__init__(table=table, filters=filters, offset=offset, limit=limit)
+
+        self._offset_widget = wid.BoundedIntText(
+            value=offset,
+            min=0,
+            max=10**15,
+            description="Offset",
+            layout=wid.Layout(width="200px"),
+        )
+        self._limit_widget = wid.BoundedIntText(
+            value=limit,
+            min=0,
+            max=10_000,
+            description="Limit",
+            layout=wid.Layout(width="200px"),
+        )
+        traitlets.link((self, "offset"), (self._offset_widget, "value"))
+        traitlets.link((self, "limit"), (self._limit_widget, "value"))
+        # TODO: I think we can reduce startup time by not materializing
+        # the table until we actually display it for the first time
+        self._datagrid = DataGridWidget(
+            records=_table_to_json(self.result_table), schema=self._result_schema
+        )
+        self.observe(
+            lambda _change: self._update_datagrid(),
+            ["limit", "offset", "filters"],
+        )
 
     @property
-    def filtered(self) -> ir.Table:
-        t = self.source_table
+    def filtered(self) -> ibis.Table:
+        """The table after applying filters."""
+        t = self.table
         if self.filters:
             t = t.filter(self.filters)
         return t
 
     @property
-    def n_rows_shown(self) -> int:
-        return self.stop - self.start
-
-    @traitlets.default("result_table")
-    def _calc_result_table(self):
+    def result_table(self) -> ibis.Table:
+        """The table after applying filters, offset, and limit."""
         t = self.filtered
-        t = t.select(self.columns)
-        t = t[self.start : self.stop]
+        t = t.select(ibis.row_number().name("__row_id"), *t.columns)
+        t = t.limit(self.limit, offset=self.offset)
         t = t.cache()
         return t
 
-    @traitlets.default("n_rows_source")
-    def _calc_n_rows_source(self):
-        return int(self.source_table.count().execute())
+    @property
+    def _result_records(self) -> list[dict[str, Any]]:
+        return _table_to_json(self.result_table)
 
-    @traitlets.default("n_rows_filtered")
-    def _calc_n_rows_filtered(self):
-        return int(self.filtered.count().execute())
+    @property
+    def _result_schema(self) -> dict[str, str]:
+        return {col: str(typ) for col, typ in self.result_table.schema().items()}
 
-    @traitlets.observe("source_table", "columns", "filters", "start", "stop")
-    def _update_derived(self, change):
-        self.set_trait("result_table", self._calc_result_table())
-        self.set_trait("n_rows_source", self._calc_n_rows_source())
-        self.set_trait("n_rows_filtered", self._calc_n_rows_filtered())
+    @property
+    def _n_rows_total(self) -> int:
+        return int(self.table.count().execute())
+
+    @property
+    def _n_rows_result(self) -> int:
+        return int(self.result_table.count().execute())
+
+    def _update_datagrid(self):
+        self._datagrid.records = self._result_records
+        self._datagrid.schema = self._result_schema
+
+    def __repr__(self) -> str:
+        return self.result_table._repr_mimebundle_(
+            include="text/plain", exclude="text/html"
+        )["text/plain"]
+
+    def _repr_mimebundle_(self, include=None, exclude=None):
+        start_stop_box = wid.HBox([self._offset_widget, self._limit_widget])
+        vbox = wid.VBox([start_stop_box, self._datagrid, start_stop_box])
+        base = vbox._repr_mimebundle_(include=include, exclude=exclude)
+        return {**base, "text/plain": repr(self)}
+
+
+class DataGridWidget(anywidget.AnyWidget):
+    """A JupyterWidget for displaying json data in a grid with rich display.
+
+    This is not responsible for any of the data controls or manipulation.
+    You hand this a list of records and a schema, and it displays them.
+    """
+
+    _esm = Path(__file__).parent / "datagrid.js"
+
+    records = traitlets.List(
+        traitlets.Dict(key_trait=traitlets.Unicode(), value_trait=traitlets.Any())
+    ).tag(sync=True)
+
+    # the dtype uses ibis's typestrings, eg 'int64', 'string', 'date', 'array<string>'
+    schema = traitlets.Dict(
+        key_trait=traitlets.Unicode(), value_trait=traitlets.Unicode()
+    ).tag(sync=True)
 
     def __init__(
         self,
-        source_table: ibis.Table,
-        /,
+        records: Iterable[dict[str, Any]],
         *,
-        cache: bool = True,
-        columns: Iterable[str] | None = None,
-        filters=[],
-        start: int = 0,
-        stop: int = 10,
+        schema: Mapping[str, str] | None = None,
     ):
-        if cache:
-            source_table = source_table.cache()
-        if columns is None:
-            columns = source_table.columns
-        columns = list(columns)
-        filters = list(filters)
-        super().__init__(
-            source_table=source_table,
-            columns=columns,
-            filters=filters,
-            start=start,
-            stop=stop,
-        )
+        records = list(records)
+        schema = dict(schema)
+        super().__init__(records=records, schema=schema)

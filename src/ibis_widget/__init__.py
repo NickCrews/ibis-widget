@@ -15,11 +15,12 @@ def install(name: str = "widget"):
     """
     import ibis
 
-    def show(self: ibis.Table | ibis.Column):
+    def widget(self: ibis.Table | ibis.Column) -> IbisWidget:
+        """Display the table or column in an IbisWidget."""
         if isinstance(self, ibis.Column):
             return IbisWidget(self.as_table())
         else:
             return IbisWidget(self)
 
-    setattr(ibis.Table, name, show)
-    setattr(ibis.Column, name, show)
+    setattr(ibis.Table, name, widget)
+    setattr(ibis.Column, name, widget)

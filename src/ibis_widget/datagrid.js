@@ -1,3 +1,6 @@
+// From https://www.npmjs.com/package/pretty-print-json
+import {prettyPrintJson} from "https://esm.run/pretty-print-json@3.0.1";
+
 /** @param {{ model: DOMWidgetModel, el: HTMLElement }} context */
 // The model has the following attributes:
 // - records: array of objects, each object representing a row
@@ -89,69 +92,42 @@ function renderTbody(records, schema) {
         overflow: hidden;          /* Hide overflowed content */
         text-overflow: ellipsis;   /* Show ellipsis (...) for truncated content */
         max-width: 150px;          /* Set a maximum width */
+        max-height: 20px;          /* Set a maximum height */
         cursor: pointer;           /* Add a pointer on hover */
     }
     
     .dg-truncate:hover {
-        white-space: normal;       /* Revert to default behaviour */
+        white-space: pre;          /* Assume preformatted */
         overflow: visible;         /* Revert to default behaviour */
         text-overflow: clip;       /* Revert to default behaviour */
+        max-width: none;           /* Revert to default behaviour */
+        max-height: none;          /* Revert to default behaviour */
         z-index: 1;                /* Ensure the text is on top */
-        background-color: #f8f9fa; /* Highlight on hover */
-    }
-    
-    .dg-integer {
-        color: #007bff;
-        text-align: right;
-    }
-    
-    .dg-float {
-        color: #28a745;
-        text-align: right;
-    }
-    
-    .dg-boolean {
-        color: #dc3545;
     }
 
     .dg-date {
         color: #17a2b8;
     }
+    
     </style>
+    <link rel=stylesheet href=https://cdn.jsdelivr.net/npm/pretty-print-json@3.0.1/dist/css/pretty-print-json.css>
     <tbody>
         ${records.map((record) => `
             <tr>
-                ${columns.map(column => `<td>${renderCell(record[column], column, schema[column])}</td>`).join("")}
+                ${columns.map(column => `<td class="dg-truncate">${renderValue(record[column], schema[column])}</td>`).join("")}
             </tr>
         `).join("")}
     </tbody>
     `
 }
 
-function renderCell(value, column, type) {
-    if (value === null) {
-        return `<div class="dg-null">null</div>`;
-    }
-    // ! means non-nullable in ibis's type language
-    // We don't care about that here
-    type = type.replace("!", "");
-    if (type === "string") {
-        return `
-            <div class="dg-string dg-truncate">${value}</div>`;
-    }
-    if (type.startsWith("int") || type.startsWith("uint")) {
-        return `<div class="dg-integer">${value}</div>`;
-    }
-    if (type === "float" || type === "decimal") {
-        return `<div class="dg-float">${value}</div>`;
-    }
-    if (type === "boolean") {
-        return `<div class="dg-boolean">${value}</div>`;
-    }
+function renderValue(value, type) {
+    // TODO: any dates nested inside arrays or structs will not be formatted
+    // by prettyPrintJson
     if (type === "date") {
         return `<div class="dg-date">${value}</div>`;
     }
-    return `<div>${value}</div>`;
+    return prettyPrintJson.toHtml(value);
 }
 
 

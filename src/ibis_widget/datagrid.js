@@ -12,6 +12,7 @@ function render({model, el}) {
 
 function renderThead(schema) {
     function headerCell(column, type) {
+        type = type.replace("<", "&lt;").replace(">", "&gt;");
         return `
         <th class="dg-tooltip">
             ${column}

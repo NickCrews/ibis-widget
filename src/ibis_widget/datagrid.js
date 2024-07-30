@@ -67,6 +67,10 @@ function renderTbody(records, schema) {
     return `
     <style>
 
+    .dg-table {
+        font-size: 10px;
+    }
+
     .dg-table td {
         padding-top: 0px;
         padding-bottom: 0px;

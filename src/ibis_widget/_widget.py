@@ -21,6 +21,8 @@ def _table_to_json(table: ibis.Table) -> list[dict]:
         s.across(s.of_type("!timestamp"), _date_to_string),
         s.across(s.of_type("uuid"), _date_to_string),
         s.across(s.of_type("!uuid"), _date_to_string),
+        s.across(s.of_type("decimal"), lambda x: x.cast("float64")),
+        s.across(s.of_type("!decimal"), lambda x: x.cast("float64")),
     )
     return table.to_pandas().to_dict(orient="records")
 

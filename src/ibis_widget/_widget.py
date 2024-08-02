@@ -5,25 +5,45 @@ import anywidget
 import ibis
 import ipywidgets as wid
 import traitlets
-from ibis import selectors as s
-from ibis.expr import types as ir
+from ibis.expr import datatypes as dt
 
 
-def _date_to_string(date: ir.DateValue) -> ir.StringValue:
-    return date.cast("string")
+def _to_json_serializable_type(ty: dt.DataType) -> dt.DataType:
+    if isinstance(ty, dt.Array):
+        return dt.Array(
+            nullable=ty.nullable,
+            value_type=_to_json_serializable_type(ty.value_type),
+        )
+    if isinstance(ty, dt.Struct):
+        return dt.Struct(
+            nullable=ty.nullable,
+            fields={
+                name: _to_json_serializable_type(subty)
+                for name, subty in ty.fields.items()
+            },
+        )
+    if isinstance(ty, dt.Map):
+        return dt.Map(
+            nullable=ty.nullable,
+            key_type=_to_json_serializable_type(ty.key_type),
+            value_type=_to_json_serializable_type(ty.value_type),
+        )
+    if isinstance(ty, dt.Decimal):
+        return dt.Float64(nullable=ty.nullable)
+    if isinstance(ty, dt.Date):
+        return dt.String(nullable=ty.nullable)
+    if isinstance(ty, dt.Timestamp):
+        return dt.String(nullable=ty.nullable)
+    if isinstance(ty, dt.UUID):
+        return dt.String(nullable=ty.nullable)
+    return ty
 
 
 def _table_to_json(table: ibis.Table) -> list[dict]:
-    table = table.mutate(
-        s.across(s.of_type("date"), _date_to_string),
-        s.across(s.of_type("!date"), _date_to_string),
-        s.across(s.of_type("timestamp"), _date_to_string),
-        s.across(s.of_type("!timestamp"), _date_to_string),
-        s.across(s.of_type("uuid"), _date_to_string),
-        s.across(s.of_type("!uuid"), _date_to_string),
-        s.across(s.of_type("decimal"), lambda x: x.cast("float64")),
-        s.across(s.of_type("!decimal"), lambda x: x.cast("float64")),
-    )
+    serializable_schema = {
+        name: _to_json_serializable_type(ty) for name, ty in table.schema().items()
+    }
+    table = table.cast(serializable_schema)
     return table.to_pandas().to_dict(orient="records")
 
 

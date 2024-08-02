@@ -14,7 +14,15 @@ def _date_to_string(date: ir.DateValue) -> ir.StringValue:
 
 
 def _table_to_json(table: ibis.Table) -> list[dict]:
-    table = table.mutate(s.across(s.of_type("date"), _date_to_string))
+    table = table.mutate(
+        s.across(s.of_type("date"), _date_to_string),
+        s.across(s.of_type("!date"), _date_to_string),
+        s.across(s.of_type("timestamp"), _date_to_string),
+        s.across(s.of_type("!timestamp"), _date_to_string),
+        s.across(s.of_type("uuid"), _date_to_string),
+        s.across(s.of_type("!uuid"), _date_to_string),
+    )
+    print(table.schema())
     return table.to_pandas().to_dict(orient="records")
 
 

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import ibis
 import pytest
+
 from ibis_widget import IbisWidget
 
 
@@ -18,7 +19,7 @@ def table() -> ibis.Table:
 
 def test_basic(table: ibis.Table):
     w = IbisWidget(table)
-    assert w.columns == table.columns
+    assert w.filtered.columns == table.columns
     assert w._repr_mimebundle_().keys() == {
         "text/plain",
         "application/vnd.jupyter.widget-view+json",

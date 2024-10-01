@@ -133,7 +133,8 @@ class IbisWidget(traitlets.HasTraits):
     def result_table(self) -> ibis.Table:
         """The table after applying filters, offset, and limit."""
         t = self.filtered
-        t = t.select(ibis.row_number().name("__row_id"), *t.columns)
+        # workaround for https://github.com/ibis-project/ibis/issues/10261
+        t = t.mutate(__row_id=ibis.row_number()).relocate("__row_id")
         t = t.limit(self.limit, offset=self.offset)
         t = t.cache()
         return t

@@ -44,7 +44,12 @@ def _table_to_json(table: ibis.Table) -> list[dict]:
         name: _to_json_serializable_type(ty) for name, ty in table.schema().items()
     }
     table = table.cast(serializable_schema)
-    return table.to_pandas().to_dict(orient="records")
+    # go through pyarrow because if we go through pandas,
+    # then NULLs in integer columns get turned into float('nan'),
+    # which 1. is semantically wrong and 2. is not JSON serializable
+    pa_table = table.to_pyarrow()
+    records = pa_table.to_pylist()  # list of dicts
+    return records
 
 
 class IbisWidget(traitlets.HasTraits):
